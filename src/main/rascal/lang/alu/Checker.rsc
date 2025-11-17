@@ -1,6 +1,7 @@
 module lang::alu::Checker
 
 import ParseTree;
+import String;
 import lang::alu::Syntax;
 extend analysis::typepal::TypePal;
 
@@ -21,8 +22,8 @@ str prettyAType(boolType())              = "Bool";
 str prettyAType(sequenceType(elem))      = "Sequence[<prettyAType(elem)>]";
 str prettyAType(tupleType(fst, snd))     = "Tuple[<prettyAType(fst)>,<prettyAType(snd)>]";
 str prettyAType(dataType(name))          = "<name>";
-str prettyAType(unknownType(label))      = "'<label>'";
-str prettyAType(functionType(params, ret)) = "(<strJoin([prettyAType(p) | p <- params], ", ")>) -> <prettyAType(ret)>";
+str prettyAType(unknownType(label))      = "\'<label>\'";
+str prettyAType(functionType(params, ret)) = "(<strJoin([prettyAType(p) | p <- params], ", ")>) -\> <prettyAType(ret)>";
 
 /**
  * Map a syntactic 'Type' node into an 'AType' value.
@@ -66,9 +67,12 @@ public AType inferProgram(Program program) {
   // Collect data declarations and initial function signatures
   for (decl <- program.decls) {
     switch (decl) {
-      case dataDecl(DataDecl)`<Id name> = data with <{Id ","}+ ops> end <Id?>`:
-        dataTypes += {"<name>"};
-      case funDecl(FunDecl) fd:
+      case (Decl)`<DataDecl dd>`:
+        if ((DataDecl)`<Id name> = data with <OpList ops> end` := dd || 
+            (DataDecl)`<Id name> = data with <OpList ops> end <Id _>` := dd) {
+          dataTypes += {"<name>"};
+        }
+      case (Decl)`<FunDecl fd>`:
         funEnv["<fd.name>"] = initialFunSignature(fd, dataTypes);
     }
   }
@@ -76,15 +80,17 @@ public AType inferProgram(Program program) {
   // Second pass performs full checks
   for (decl <- program.decls) {
     switch (decl) {
-      case dataDecl(DataDecl) dd:
+      case (Decl)`<DataDecl dd>`:
         verifyDataDecl(dd, funEnv);
-      case funDecl(FunDecl) fd:
+      case (Decl)`<FunDecl fd>`:
         <functionType signature, FunEnv updatedFunEnv> = inferFunction(fd, varEnv, funEnv, dataTypes);
         funEnv = updatedFunEnv;
-      case varDecl(VarDecl)`var <VarBindingList bindings>;`:
-        <TypeEnv newEnv, AType bindingType> = inferBindings(bindings, varEnv, funEnv, dataTypes);
-        varEnv = newEnv;
-        lastType = bindingType;
+      case (Decl)`<VarDecl vd>`:
+        if ((VarDecl)`var <VarBindingList bindings>;` := vd) {
+          <TypeEnv newEnv, AType bindingType> = inferBindings(bindings, varEnv, funEnv, dataTypes);
+          varEnv = newEnv;
+          lastType = bindingType;
+        }
     }
   }
 
@@ -97,10 +103,10 @@ public void checkProgram(str code) {
 
 private functionType initialFunSignature(FunDecl decl, set[str] dataTypes) {
   list[AType] params = [];
-  if (ParamList) ps := decl.params {
+  if ((ParamList) ps := decl.params) {
     params += paramType(ps.head, dataTypes);
     for (p <- ps.tail) {
-      params += paramType((Param) p, dataTypes);
+      params += paramType(p, dataTypes);
     }
   }
   return functionType(params, unknownType("return-<decl.name>"));
@@ -108,7 +114,7 @@ private functionType initialFunSignature(FunDecl decl, set[str] dataTypes) {
 
 private AType paramType(Param p, set[str] dataTypes) {
   switch (p) {
-    case Param)`<Id _> : <Type t>`:
+    case (Param)`<Id _> : <Type t>`:
       return typeOfTree(t, dataTypes);
     default:
       return unknownType("param-<p.id>");
@@ -140,21 +146,21 @@ private tuple[TypeEnv, AType] inferBindings(VarBindingList bindings, TypeEnv env
 private tuple[TypeEnv, AType] inferBinding(VarBinding binding, TypeEnv env, FunEnv funEnv,
     set[str] dataTypes) {
   switch (binding) {
-    case VarBinding)`<Id name> : <Type t> = <Expr init>`:
+    case (VarBinding)`<Id name> : <Type t> = <Expr init>`:
       <AType initType, TypeEnv updated> = inferExpr(init, env, funEnv, dataTypes);
       AType declared = typeOfTree(t, dataTypes);
       <AType final, TypeEnv merged> = ensureType(initType, declared, updated, name);
       merged["<name>"] = final;
       return <merged, final>;
-    case VarBinding)`<Id name> = <Expr init>`:
+    case (VarBinding)`<Id name> = <Expr init>`:
       <AType initType, TypeEnv updated> = inferExpr(init, env, funEnv, dataTypes);
       updated["<name>"] = initType;
       return <updated, initType>;
-    case VarBinding)`<Id name> : <Type t>`:
+    case (VarBinding)`<Id name> : <Type t>`:
       AType declared = typeOfTree(t, dataTypes);
       env["<name>"] = declared;
       return <env, declared>;
-    case VarBinding)`<Id name>`:
+    case (VarBinding)`<Id name>`:
       typeError("Variable <name> must have a type annotation or initializer");
   }
   return <env, unknownType("binding")>;
@@ -164,13 +170,12 @@ private tuple[functionType, FunEnv] inferFunction(FunDecl decl, TypeEnv globals,
     set[str] dataTypes) {
   list[str] paramNames = [];
   list[AType] paramTypes = [];
-  if (ParamList) ps := decl.params {
-    paramNames += ps.head.id;
+  if ((ParamList) ps := decl.params) {
+    paramNames += "<ps.head.id>";
     paramTypes += paramType(ps.head, dataTypes);
     for (p <- ps.tail) {
-      Param param = (Param) p;
-      paramNames += param.id;
-      paramTypes += paramType(param, dataTypes);
+      paramNames += "<p.id>";
+      paramTypes += paramType(p, dataTypes);
     }
   }
 
@@ -195,20 +200,24 @@ private tuple[functionType, FunEnv] inferFunction(FunDecl decl, TypeEnv globals,
 private tuple[AType, TypeEnv] inferStmt(Stmt stmt, TypeEnv locals, TypeEnv globals, FunEnv funs,
     set[str] dataTypes) {
   switch (stmt) {
-    case assign(Assign)`<Id name> = <Expr value>`:
-      <AType exprType, TypeEnv env> = inferExpr(value, globals + locals, funs, dataTypes);
-      if (name in locals) {
-        <AType unified, TypeEnv updated> = ensureType(locals[name], exprType, env, name);
-        locals[name] = unified;
-        return <unified, locals>;
+    case (Stmt)`<Assign a>`: {
+      if ((Assign)`<Id name> = <Expr value>` := a) {
+        str nameStr = "<name>";
+        <AType exprType, TypeEnv env> = inferExpr(value, globals + locals, funs, dataTypes);
+        if (nameStr in locals) {
+          <AType unified, TypeEnv updated> = ensureType(locals[nameStr], exprType, env, name);
+          locals[nameStr] = unified;
+          return <unified, locals>;
+        }
+        if (nameStr in globals) {
+          <AType unified, TypeEnv updated> = ensureType(globals[nameStr], exprType, env, name);
+          globals[nameStr] = unified;
+          return <unified, globals + locals>;
+        }
+        typeError("Assigning to undefined variable <name>");
       }
-      if (name in globals) {
-        <AType unified, TypeEnv updated> = ensureType(globals[name], exprType, env, name);
-        globals[name] = unified;
-        return <unified, globals + locals>;
-      }
-      typeError("Assigning to undefined variable <name>");
-    case exprStmt(Expr) e:
+    }
+    case (Stmt)`<Expr e>`:
       return inferExpr(e, globals + locals, funs, dataTypes);
   }
   return <unknownType("stmt"), locals>;
@@ -216,53 +225,55 @@ private tuple[AType, TypeEnv] inferStmt(Stmt stmt, TypeEnv locals, TypeEnv globa
 
 private tuple[AType, TypeEnv] inferExpr(Expr expr, TypeEnv env, FunEnv funs, set[str] dataTypes) {
   switch (expr) {
-    case Expr) `<Id name>`:
-      if (name in env) return <env[name], env>;
+    case (Expr) `<Id name>`: {
+      str nameStr = "<name>";
+      if (nameStr in env) return <env[nameStr], env>;
       typeError("Undefined variable <name>");
-    case Expr) `<Integer _>`:
+    }
+    case (Expr) `<Integer _>`:
       return <intType(), env>;
-    case Expr) `<Boolean _>`:
+    case (Expr) `<Boolean _>`:
       return <boolType(), env>;
-    case Expr) `(<Expr inner>)`:
+    case (Expr) `(<Expr inner>)`:
       return inferExpr(inner, env, funs, dataTypes);
-    case Expr) `<Expr l> + <Expr r>`:
+    case (Expr) `<Expr l> + <Expr r>`:
       return numericOp(l, r, env, funs, dataTypes);
-    case Expr) `<Expr l> - <Expr r>`:
+    case (Expr) `<Expr l> - <Expr r>`:
       return numericOp(l, r, env, funs, dataTypes);
-    case Expr) `<Expr l> * <Expr r>`:
+    case (Expr) `<Expr l> * <Expr r>`:
       return numericOp(l, r, env, funs, dataTypes);
-    case Expr) `<Expr l> / <Expr r>`:
+    case (Expr) `<Expr l> / <Expr r>`:
       return numericOp(l, r, env, funs, dataTypes);
-    case Expr) `<Expr l> and <Expr r>`:
+    case (Expr) `<Expr l> and <Expr r>`:
       return booleanOp(l, r, env, funs, dataTypes);
-    case Expr) `<Expr l> or <Expr r>`:
+    case (Expr) `<Expr l> or <Expr r>`:
       return booleanOp(l, r, env, funs, dataTypes);
-    case Expr) `if <Expr cond> then <Expr thenE> else <Expr elseE>`:
+    case (Expr) `if <Expr cond> then <Expr thenE> else <Expr elseE>`:
       <AType condType, TypeEnv env1> = inferExpr(cond, env, funs, dataTypes);
       <AType condOk, TypeEnv env2> = ensureType(condType, boolType(), env1, "if-condition");
       <AType thenType, TypeEnv envThen> = inferExpr(thenE, env2, funs, dataTypes);
       <AType elseType, TypeEnv envElse> = inferExpr(elseE, envThen, funs, dataTypes);
       <AType unified, TypeEnv merged> = ensureType(thenType, elseType, envElse, "if-branches");
       return <unified, merged>;
-    case call(CallExpr)`<Id name>(<ArgList? args>)`:
-      if (!(name in funs)) typeError("Undefined function <name>");
-      functionType sig = funs[name];
-      list[Expr] argExprs = [];
-      if (ArgList) argList := args {
-        argExprs += argList.head;
-        for (e <- argList.tail) argExprs += (Expr) e;
+    case (Expr)`<CallExpr ce>`: {
+      if ((CallExpr)`<Id name>(<ArgList? args>)` := ce) {
+        str nameStr = "<name>";
+        if (!(nameStr in funs)) typeError("Undefined function <name>");
+        functionType sig = funs[nameStr];
+        list[Expr] argExprs = [];\n        if ((ArgList) argList := args) {\n          argExprs += argList.head;\n          for (e <- argList.tail) argExprs += e;\n        }
+        if (size(argExprs) != size(sig.params)) {
+          typeError("Function <name> expects <size(sig.params)> arguments but got <size(argExprs)>");
+        }
+        TypeEnv updated = env;
+        for (int i <- [0 .. size(argExprs) - 1]) {
+          <AType argType, TypeEnv envArg> = inferExpr(argExprs[i], updated, funs, dataTypes);
+          <AType unified, TypeEnv merged> = ensureType(argType, sig.params[i], envArg, "arg-<i>");
+          updated = merged;
+        }
+        return <sig.ret, updated>;
       }
-      if (size(argExprs) != size(sig.params)) {
-        typeError("Function <name> expects <size(sig.params)> arguments but got <size(argExprs)>");
-      }
-      TypeEnv updated = env;
-      for (int i <- [0 .. size(argExprs) - 1]) {
-        <AType argType, TypeEnv envArg> = inferExpr(argExprs[i], updated, funs, dataTypes);
-        <AType unified, TypeEnv merged> = ensureType(argType, sig.params[i], envArg, "arg-<i>");
-        updated = merged;
-      }
-      return <sig.ret, updated>;
-    case seqLit(SequenceLiteral) seq:
+    }
+    case (Expr)`<SequenceLiteral seq>`:
       list[Expr] elems = exprListToList(seq.elements);
       <AType headType, TypeEnv envHead> = inferExpr(elems[0], env, funs, dataTypes);
       TypeEnv currentEnv = envHead;
@@ -276,7 +287,8 @@ private tuple[AType, TypeEnv] inferExpr(Expr expr, TypeEnv env, FunEnv funs, set
         }
       }
       return <sequenceType(elementType), currentEnv>;
-    case tupleLit(TupleLiteral)`tuple(<Expr fst>,<Expr snd>)`:
+    case (Expr)`<TupleLiteral tl>`: {
+      if ((TupleLiteral)`tuple(<Expr fst>,<Expr snd>)` := tl) {
       <AType t1, TypeEnv env1> = inferExpr(fst, env, funs, dataTypes);
       <AType t2, TypeEnv env2> = inferExpr(snd, env1, funs, dataTypes);
       return <tupleType(t1, t2), env2>;

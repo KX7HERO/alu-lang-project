@@ -1,0 +1,163 @@
+module lang::alu::Syntax
+
+extend lang::alu::CommonLex;
+
+/**
+ * A complete ALU program is a non-empty sequence of declarations.
+ */
+start syntax Program
+  = programSingle: Decl
+  | programMore: Decl Program
+  ;
+
+/**
+ * Top-level declarations in ALU.
+ */
+syntax Decl
+  = dataDecl: DataDecl
+  | funDecl: FunDecl
+  | varDecl: VarDecl
+  ;
+
+/**
+ * Data abstraction:
+ *   complex = data with create, add, get_theta, equal end complex
+ */
+syntax DataDecl
+  = dataNoEnd: Id "=" "data" "with" ops: OpList "end"
+  | dataWithEnd: Id "=" "data" "with" ops: OpList "end" Id
+  ;
+
+syntax OpList
+  = opSingle: Id
+  | opMore: Id "," OpList
+  ;
+
+/**
+ * Function definition:
+ *   sqrt = function(x, g) do
+ *     ...
+ *   end sqrt
+ *
+ * The last expression in the body is the returned value (by convention).
+ */
+syntax FunDecl
+  = funNoParamsNoEnd: Id "=" "function" "(" ")" "do"
+      body: StmtBlock
+    "end"
+  | funNoParamsWithEnd: Id "=" "function" "(" ")" "do"
+      body: StmtBlock
+    "end" endName: Id
+  | funWithParamsNoEnd: Id "=" "function" "(" params: ParamList ")" "do"
+      body: StmtBlock
+    "end"
+  | funWithParamsWithEnd: Id "=" "function" "(" params: ParamList ")" "do"
+      body: StmtBlock
+    "end" endName: Id
+  ;
+
+syntax StmtBlock
+  = stmtSingle: Stmt
+  | stmtSemiEnd: Stmt ";"
+  | stmtMore: Stmt ";" StmtBlock
+  ;
+
+syntax ParamList
+  = paramSingle: Param
+  | paramMore: Param "," ParamList
+  ;
+
+syntax Param
+  = paramUntyped: Id
+  | paramTyped: Id ":" Type
+  ;
+
+/**
+ * Variable declaration, optionally with type annotation and initializer:
+ *   var x : Int = 1, y = 2;
+ */
+syntax VarDecl
+  = "var" bindings: VarBindingList ";"
+  ;
+
+syntax VarBindingList
+  = bindingSingle: VarBinding
+  | bindingMore: VarBinding "," VarBindingList
+  ;
+
+syntax VarBinding
+  = bindingBare: Id
+  | bindingTyped: Id ":" Type
+  | bindingInit: Id "=" init: Expr
+  | bindingTypedInit: Id ":" Type "=" init: Expr
+  ;
+
+/**
+ * Statements: either assignments or bare expressions.
+ */
+syntax Stmt
+  = assign: Assign
+  | exprStmt: Expr
+  ;
+
+syntax Assign
+  = target: Id "=" value: Expr
+  ;
+
+/**
+ * Expressions: a subset of ALU used in the projects.
+ */
+syntax Expr
+  = id: Id
+  | int: Integer
+  | bool: Boolean
+  | bracket "(" Expr ")"
+  > left Expr "*" Expr
+  > left Expr "/" Expr
+  > left Expr "+" Expr
+  > left Expr "-" Expr
+  > left Expr "and" Expr
+  > left Expr "or" Expr
+  > "if" Expr "then" Expr "else" Expr
+  | call: CallExpr
+  | seqLit: SequenceLiteral
+  | tupleLit: TupleLiteral
+  ;
+
+syntax CallExpr
+  = callNoArgs: Id "(" ")"
+  | callWithArgs: Id "(" args: ArgList ")"
+  ;
+
+syntax ArgList
+  = argSingle: Expr
+  | argMore: Expr "," ArgList
+  ;
+
+/**
+ * sequence(x, y, z)
+ */
+syntax SequenceLiteral
+  = "sequence" "(" elements: ExprList ")"
+  ;
+
+syntax ExprList
+  = exprSingle: Expr
+  | exprMore: Expr "," ExprList
+  ;
+
+/**
+ * tuple(x, y)
+ */
+syntax TupleLiteral
+  = "tuple" "(" fst: Expr "," snd: Expr ")"
+  ;
+
+
+syntax Type
+  = "Int"                // integers
+  | "Bool"               // booleans
+  | seqType: "Sequence" "[" elem: Type "]"
+  | tupleType: "Tuple" "[" fst: Type "," snd: Type "]"
+  | dataType: Id         // user-defined data abstractions
+  ;
