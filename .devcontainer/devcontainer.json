@@ -1,0 +1,28 @@
+{
+  "name": "ALU Rascal Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "usethesource.rascalmpl",
+        "vscjava.vscode-java-pack"
+      ],
+      "settings": {
+        "java.import.generatesMetadataFilesAtProjectRoot": false,
+        "files.exclude": {
+          "**/.classpath": true,
+          "**/.project": true,
+          "**/.c9": true,
+          "**/*.launch": true,
+          "**/.settings": true,
+          "**/.vscode": false
+        }
+      }
+    }
+  },
+  "postCreateCommand": "mvn -q -e dependency:go-offline || true",
+  "remoteUser": "vscode"
+}

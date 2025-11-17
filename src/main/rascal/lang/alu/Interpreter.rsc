@@ -1,0 +1,223 @@
+module lang::alu::Interpreter
+
+import IO;
+import ParseTree;
+import lang::alu::Syntax;
+
+data Value
+  = intValue(int i)
+  | boolValue(bool b)
+  | sequenceValue(list[Value] elems)
+  | tupleValue(Value fst, Value snd)
+  | functionValue(FunDecl decl)
+  | dataValue(str name)
+  ;
+
+private void runtimeError(str message) {
+  throw IllegalArgument(message);
+}
+
+public value evalProgram(str code) {
+  Tree pt = parse(#start[Program], code).top;
+  println("Parsed ALU program:");
+  println(pt);
+
+  Program program = parse(#start[Program], code);
+  set[str] dataTypes = {};
+  map[str, Value] functions = ();
+  map[str, Value] variables = ();
+  Value lastValue = void;
+
+  // First collect data declarations and functions so they can be referenced
+  // before their textual appearance.
+  for (decl <- program.decls) {
+    switch (decl) {
+      case dataDecl(DataDecl)`<Id name> = data with <{Id ","}+ ops> end <Id?>`:
+        dataTypes += {"<name>"};
+      case funDecl(FunDecl) fd:
+        functions["<fd.name>"] = functionValue(fd);
+    }
+  }
+
+  // Second pass evaluates variable declarations (which may invoke functions)
+  // and keeps the latest bindings for variables and functions.
+  for (decl <- program.decls) {
+    switch (decl) {
+      case dataDecl(_):
+        // already recorded
+        continue;
+      case funDecl(FunDecl) fd:
+        functions["<fd.name>"] = functionValue(fd);
+      case varDecl(VarDecl)`var <VarBindingList bindings>;`:
+        tuple[map[str, Value], Value] result = evalBindings(bindings, variables, functions, dataTypes);
+        variables = result[0];
+        lastValue = result[1];
+    }
+  }
+
+  // By convention, the result of the program is the value of the last
+  // evaluated variable or the result of the final expression statement. If
+  // there are no declarations we return void.
+  return lastValue;
+}
+
+private tuple[map[str, Value], Value] evalBindings(VarBindingList bindings, map[str, Value] vars,
+    map[str, Value] funs, set[str] dataTypes) {
+  // Evaluate head
+  tuple[map[str, Value], Value] result = evalBinding(bindings.head, vars, funs, dataTypes);
+  vars = result[0];
+  Value last = result[1];
+  // Evaluate tail
+  for (v <- bindings.tail) {
+    VarBinding b = (VarBinding) v;
+    result = evalBinding(b, vars, funs, dataTypes);
+    vars = result[0];
+    last = result[1];
+  }
+  return <vars, last>;
+}
+
+private tuple[map[str, Value], Value] evalBinding(VarBinding binding, map[str, Value] vars,
+    map[str, Value] funs, set[str] dataTypes) {
+  switch (binding) {
+    case VarBinding)`<Id name> : <Type _> = <Expr init>`:
+      Value v = evalExpr(init, vars, funs, dataTypes);
+      vars["<name>"] = v;
+      return <vars, v>;
+    case VarBinding)`<Id name> = <Expr init>`:
+      Value v = evalExpr(init, vars, funs, dataTypes);
+      vars["<name>"] = v;
+      return <vars, v>;
+    case VarBinding)`<Id name> : <Type _>`:
+      runtimeError("Uninitialized variable <name>");
+    case VarBinding)`<Id name>`:
+      runtimeError("Uninitialized variable <name>");
+  }
+  return <vars, void>;
+}
+
+private Value evalExpr(Expr expr, map[str, Value] vars, map[str, Value] funs,
+    set[str] dataTypes) {
+  switch (expr) {
+    case Expr) `<Id name>`:
+      if (name in vars) {
+        return vars[name];
+      }
+      runtimeError("Undefined variable <name>");
+    case Expr) `<Integer n>`:
+      return intValue(toInt("<n>"));
+    case Expr) `<Boolean b>`:
+      return boolValue(b == "true");
+    case Expr) `(<Expr inner>)`:
+      return evalExpr(inner, vars, funs, dataTypes);
+    case Expr) `<Expr l> + <Expr r>`:
+      return arithOp(l, r, vars, funs, dataTypes, (int a, int b) => a + b);
+    case Expr) `<Expr l> - <Expr r>`:
+      return arithOp(l, r, vars, funs, dataTypes, (int a, int b) => a - b);
+    case Expr) `<Expr l> * <Expr r>`:
+      return arithOp(l, r, vars, funs, dataTypes, (int a, int b) => a * b);
+    case Expr) `<Expr l> / <Expr r>`:
+      int right = asInt(evalExpr(r, vars, funs, dataTypes));
+      if (right == 0) runtimeError("Division by zero");
+      int left = asInt(evalExpr(l, vars, funs, dataTypes));
+      return intValue(left / right);
+    case Expr) `<Expr l> and <Expr r>`:
+      bool lb = asBool(evalExpr(l, vars, funs, dataTypes));
+      bool rb = asBool(evalExpr(r, vars, funs, dataTypes));
+      return boolValue(lb && rb);
+    case Expr) `<Expr l> or <Expr r>`:
+      bool lb = asBool(evalExpr(l, vars, funs, dataTypes));
+      bool rb = asBool(evalExpr(r, vars, funs, dataTypes));
+      return boolValue(lb || rb);
+    case Expr) `if <Expr cond> then <Expr thenE> else <Expr elseE>`:
+      bool c = asBool(evalExpr(cond, vars, funs, dataTypes));
+      return c ? evalExpr(thenE, vars, funs, dataTypes) : evalExpr(elseE, vars, funs, dataTypes);
+    case call(CallExpr)`<Id name>(<ArgList? args>)`:
+      if (!(name in funs)) runtimeError("Undefined function <name>");
+      functionValue(FunDecl) fd = funs[name];
+      list[Expr] argExprs = [];
+      if (ArgList) argsTree := args {
+        argExprs += argsTree.head;
+        for (e <- argsTree.tail) {
+          argExprs += (Expr) e;
+        }
+      }
+      list[Value] evaluatedArgs = [evalExpr(a, vars, funs, dataTypes) | a <- argExprs];
+      return evalFunction(fd, evaluatedArgs, vars, funs, dataTypes);
+    case seqLit(SequenceLiteral)`sequence(<{Expr ","}+ elems>)`:
+      list[Value] values = [evalExpr((Expr) e, vars, funs, dataTypes) | e <- elems];
+      return sequenceValue(values);
+    case tupleLit(TupleLiteral)`tuple(<Expr fst>,<Expr snd>)`:
+      return tupleValue(evalExpr(fst, vars, funs, dataTypes), evalExpr(snd, vars, funs, dataTypes));
+  }
+}
+
+private Value evalFunction(FunDecl decl, list[Value] args, map[str, Value] globals,
+    map[str, Value] funs, set[str] dataTypes) {
+  list[str] paramNames = [];
+  list[Expr] bodyStmts = [];
+
+  if (ParamList) params := decl.params {
+    paramNames += params.head.id;
+    for (p <- params.tail) {
+      Param param = (Param) p;
+      paramNames += param.id;
+    }
+  }
+
+  if (size(paramNames) != size(args)) {
+    runtimeError("Function <decl.name> expects <size(paramNames)> args but got <size(args)>");
+  }
+
+  map[str, Value] localEnv = ();
+  for (int i <- [0 .. size(paramNames) - 1]) {
+    localEnv[paramNames[i]] = args[i];
+  }
+
+  // Evaluate statements; the last expression is the return value.
+  Value last = void;
+  for (stmt <- decl.body) {
+    last = evalStmt((Stmt) stmt, localEnv, globals, funs, dataTypes);
+  }
+  return last;
+}
+
+private Value evalStmt(Stmt stmt, map[str, Value] locals, map[str, Value] globals,
+    map[str, Value] funs, set[str] dataTypes) {
+  switch (stmt) {
+    case assign(Assign)`<Id name> = <Expr value>`:
+      Value v = evalExpr(value, globals + locals, funs, dataTypes);
+      if (name in locals) {
+        locals[name] = v;
+      } else if (name in globals) {
+        globals[name] = v;
+      } else {
+        runtimeError("Assigning to undefined variable <name>");
+      }
+      return v;
+    case exprStmt(Expr) e:
+      return evalExpr(e, globals + locals, funs, dataTypes);
+  }
+}
+
+private int asInt(Value v) {
+  switch (v) {
+    case intValue(int i): return i;
+    default: runtimeError("Expected Int but got <v>");
+  }
+}
+
+private bool asBool(Value v) {
+  switch (v) {
+    case boolValue(bool b): return b;
+    default: runtimeError("Expected Bool but got <v>");
+  }
+}
+
+private Value arithOp(Expr l, Expr r, map[str, Value] vars, map[str, Value] funs,
+    set[str] dataTypes, int (int,int) op) {
+  int left = asInt(evalExpr(l, vars, funs, dataTypes));
+  int right = asInt(evalExpr(r, vars, funs, dataTypes));
+  return intValue(op(left, right));
+}
+

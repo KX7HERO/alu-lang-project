@@ -1,0 +1,11 @@
+// Advanced ALU example exercising arithmetic, booleans, sequences and tuples
+var base : Int = 3;
+
+// Simple doubling function
+double = function(x) do
+  x + x
+end double;
+
+var numbers = sequence(base, double(4), 7);
+var pair = tuple(1, if true then 2 else 3);
+var flag : Bool = true or false;
