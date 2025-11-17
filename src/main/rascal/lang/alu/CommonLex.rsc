@@ -5,6 +5,9 @@ layout Layout = [\t \r\n]*;
 // Integer literals (no sign, handled at expression level)
 lexical Integer = [0-9]+;
 
+// Floating point literals with a single decimal point
+lexical Float = [0-9]+ "." [0-9]+;
+
 // Boolean literals
 lexical Boolean = "true" | "false";
 
@@ -17,4 +20,5 @@ keyword Reserved
   | "for" | "from" | "then" | "function" | "else"
   | "if" | "in" | "iterator" | "sequence" | "struct"
   | "to" | "tuple" | "type" | "with" | "yielding"
+  | "var" | "Int" | "Bool" | "Char" | "String" | "Float"
   ;

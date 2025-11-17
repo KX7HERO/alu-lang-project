@@ -40,6 +40,13 @@
       <artifactId>typepal</artifactId>
       <version>0.14.8</version>
     </dependency>
+    
+    <!-- Vallang for value types (explicit dependency) -->
+    <dependency>
+      <groupId>io.usethesource</groupId>
+      <artifactId>vallang</artifactId>
+      <version>0.14.2</version>
+    </dependency>
   </dependencies>
 
   <build>
