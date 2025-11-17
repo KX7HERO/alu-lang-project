@@ -13,11 +13,11 @@ syntax Decl
   ;
 
 syntax DataDecl
-  = dataDecl: name:Id "=" "data" "with" ops:{Id ","}+ "end" endName:Id? ";"?
+  = dataDecl: name:Id "=" "data" "with" {Id ","}+ "end" endName:Id? ";"?
   ;
 
 syntax FunDecl
-  = funDecl: name:Id "=" "function" "(" params:{Param ","}* ")" "do" body:Block "end" endName:Id? ";"?
+  = funDecl: name:Id "=" "function" "(" {Param ","}* ")" "do" body:Block "end" endName:Id? ";"?
   ;
 
 syntax Param
@@ -26,7 +26,7 @@ syntax Param
   ;
 
 syntax VarDecl
-  = varDecl: "var" bindings:{VarBinding ","}+ ";"?
+  = varDecl: "var" {VarBinding ","}+ ";"?
   ;
 
 syntax VarBinding
@@ -128,18 +128,18 @@ syntax UnaryExpr
   ;
 
 syntax PostfixExpr
-  = callExpr: PostfixExpr "(" args:{Expr ","}* ")"
+  = callExpr: PostfixExpr "(" {Expr ","}* ")"
   | memberExpr: PostfixExpr "." field:Id
   | primaryExpr: PrimaryExpr
   ;
 
 syntax PrimaryExpr
   = parenExpr: "(" Expr ")"
-  | dataCallExpr: dataName:Id "$" opName:Id "(" args:{Expr ","}* ")"
-  | structBuildExpr: structName:Id "$" "(" fields:{FieldInit ","}+ ")"
-  | sequenceExpr: "sequence" "(" elements:{Expr ","}* ")"
+  | dataCallExpr: dataName:Id "$" opName:Id "(" {Expr ","}* ")"
+  | structBuildExpr: structName:Id "$" "(" {FieldInit ","}+ ")"
+  | sequenceExpr: "sequence" "(" {Expr ","}* ")"
   | tupleExpr: "tuple" "(" first:Expr "," second:Expr ")"
-  | structExpr: "struct" "(" fields:{Id ","}+ ")"
+  | structExpr: "struct" "(" {Id ","}+ ")"
   | boolLiteral: Boolean
   | intLiteral: Integer
   | floatLiteral: Float
@@ -158,7 +158,7 @@ syntax Type
   | floatType: "Float"
   | charType: "Char"
   | stringType: "String"
-  | sequenceType: "Sequence" "[" Type elem "]"
-  | tupleType: "Tuple" "[" Type fst "," Type snd "]"
+  | sequenceType: "Sequence" "[" elem:Type "]"
+  | tupleType: "Tuple" "[" fst:Type "," snd:Type "]"
   | dataType: Id
   ;

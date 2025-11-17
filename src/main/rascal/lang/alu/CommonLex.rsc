@@ -9,7 +9,7 @@ layout Layout
   | Layout Layout
   ;
 
-comment Comment
+lexical Comment
   = "//" ![\n]* ("\n" | "\r" | "\r\n")?
   | "/*" CommentChar* "*/"
   ;
@@ -26,10 +26,10 @@ lexical Integer = [0-9]+;
 lexical Float = [0-9]+ "." [0-9]+;
 
 // Character literals (simplified, escapes handled in semantic phase)
-lexical Char = "'" !['\n\r] "'";
+lexical Char = [\'] ![\n\r\'] [\'];
 
 // Double quoted strings without embedded newlines
-lexical String = "\"" !["\n\r]* "\"";
+lexical String = "\"" ![\n\r\"]* "\"";
 
 // Boolean literals
 lexical Boolean = "true" | "false";

@@ -27,18 +27,18 @@
   </pluginRepositories>
 
   <dependencies>
-    <!-- Core Rascal runtime -->
-    <dependency>
-      <groupId>org.rascalmpl</groupId>
-      <artifactId>rascal</artifactId>
-      <version>0.40.17</version>
-    </dependency>
-
     <!-- TypePal for the type system (Project 3) -->
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
       <version>0.14.8</version>
+    </dependency>
+
+    <!-- Rascal runtime required by newer compiler plugin -->
+    <dependency>
+      <groupId>org.rascalmpl</groupId>
+      <artifactId>rascal</artifactId>
+      <version>0.41.0-RC30</version>
     </dependency>
     
     <!-- Vallang for value types (explicit dependency) -->
@@ -92,7 +92,7 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.8.2</version>
+        <version>0.30.0-RC29</version>
         <configuration>
           <bin>${project.build.outputDirectory}</bin>
           <srcs>
