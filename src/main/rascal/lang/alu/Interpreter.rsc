@@ -22,7 +22,7 @@ private int findLastInteger(Tree tree) {
   int last = 0;
 
   visit(tree) {
-    case `<Integer n>`: {
+    case (Integer)`<Integer n>`: {
       last = toInt("<n>");
       seen = true;
     }
