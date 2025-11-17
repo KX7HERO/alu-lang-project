@@ -23,7 +23,11 @@ syntax Decl
  *   complex = data with create, add, get_theta, equal end complex
  */
 syntax DataDecl
-  = name: Id "=" "data" "with" ops: {Id ","}+ "end" Id?
+  = name: Id "=" "data" "with" ops: OpList "end" Id?
+  ;
+
+syntax OpList
+  = head: Id tail: {"," Id}*
   ;
 
 /**
@@ -36,8 +40,12 @@ syntax DataDecl
  */
 syntax FunDecl
   = name: Id "=" "function" "(" params: [ParamList]? ")" "do"
-      body: {Stmt ";"}+
+      body: StmtBlock
     "end" Id?
+  ;
+
+syntax StmtBlock
+  = head: Stmt tail: {";" Stmt}* [";"]?
   ;
 
 syntax ParamList
@@ -108,7 +116,11 @@ syntax ArgList
  * sequence(x, y, z)
  */
 syntax SequenceLiteral
-  = "sequence" "(" elements: {Expr ","}+ ")"
+  = "sequence" "(" elements: ExprList ")"
+  ;
+
+syntax ExprList
+  = head: Expr tail: {"," Expr}*
   ;
 
 /**

@@ -116,9 +116,8 @@ private AType paramType(Param p, set[str] dataTypes) {
 }
 
 private void verifyDataDecl(DataDecl decl, FunEnv funEnv) {
-  if (decl.ops == []) return;
-  for (id <- decl.ops) {
-    str op = "<id>";
+  list[str] ops = opNames(decl.ops);
+  for (str op <- ops) {
     if (!(op in funEnv)) {
       typeError("Data abstraction <decl.name> requires operation <op> but it is not defined");
     }
@@ -181,8 +180,9 @@ private tuple[functionType, FunEnv] inferFunction(FunDecl decl, TypeEnv globals,
   }
 
   AType last = unknownType("return-<decl.name>");
-  for (stmt <- decl.body) {
-    <AType stmtType, TypeEnv updatedLocals> = inferStmt((Stmt) stmt, local, globals, funEnv, dataTypes);
+  list[Stmt] stmts = stmtBlockToList(decl.body);
+  for (Stmt stmt <- stmts) {
+    <AType stmtType, TypeEnv updatedLocals> = inferStmt(stmt, local, globals, funEnv, dataTypes);
     local = updatedLocals;
     last = stmtType;
   }
@@ -262,13 +262,14 @@ private tuple[AType, TypeEnv] inferExpr(Expr expr, TypeEnv env, FunEnv funs, set
         updated = merged;
       }
       return <sig.ret, updated>;
-    case seqLit(SequenceLiteral)`sequence(<{Expr ","}+ elems>)`:
-      <AType headType, TypeEnv envHead> = inferExpr((Expr) elems[0], env, funs, dataTypes);
+    case seqLit(SequenceLiteral) seq:
+      list[Expr] elems = exprListToList(seq.elements);
+      <AType headType, TypeEnv envHead> = inferExpr(elems[0], env, funs, dataTypes);
       TypeEnv currentEnv = envHead;
       AType elementType = headType;
       if (size(elems) > 1) {
-        for (e <- elems[1 .. ]) {
-          <AType nextType, TypeEnv envNext> = inferExpr((Expr) e, currentEnv, funs, dataTypes);
+        for (Expr e <- elems[1 .. ]) {
+          <AType nextType, TypeEnv envNext> = inferExpr(e, currentEnv, funs, dataTypes);
           <AType unified, TypeEnv merged> = ensureType(elementType, nextType, envNext, "sequence element");
           elementType = unified;
           currentEnv = merged;
@@ -318,5 +319,33 @@ private tuple[AType, TypeEnv] ensureType(AType found, AType expected, TypeEnv en
   }
   typeError("Type mismatch in <context>: expected <prettyAType(expected)> but found <prettyAType(found)>");
   return <expected, env>;
+}
+
+private list[str] opNames(OpList ops) {
+  return ["<id>" | Id id <- idList(ops)];
+}
+
+private list[Id] idList(OpList ops) {
+  list[Id] ids = [ops.head];
+  for (Id id <- ops.tail) {
+    ids += id;
+  }
+  return ids;
+}
+
+private list[Stmt] stmtBlockToList(StmtBlock block) {
+  list[Stmt] stmts = [block.head];
+  for (Stmt stmt <- block.tail) {
+    stmts += stmt;
+  }
+  return stmts;
+}
+
+private list[Expr] exprListToList(ExprList exprList) {
+  list[Expr] exprs = [exprList.head];
+  for (Expr expr <- exprList.tail) {
+    exprs += expr;
+  }
+  return exprs;
 }
 

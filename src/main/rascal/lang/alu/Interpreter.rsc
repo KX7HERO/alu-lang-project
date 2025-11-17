@@ -144,8 +144,9 @@ private Value evalExpr(Expr expr, map[str, Value] vars, map[str, Value] funs,
       }
       list[Value] evaluatedArgs = [evalExpr(a, vars, funs, dataTypes) | a <- argExprs];
       return evalFunction(fd, evaluatedArgs, vars, funs, dataTypes);
-    case seqLit(SequenceLiteral)`sequence(<{Expr ","}+ elems>)`:
-      list[Value] values = [evalExpr((Expr) e, vars, funs, dataTypes) | e <- elems];
+    case seqLit(SequenceLiteral) seq:
+      list[Expr] elems = exprListToList(seq.elements);
+      list[Value] values = [evalExpr(e, vars, funs, dataTypes) | e <- elems];
       return sequenceValue(values);
     case tupleLit(TupleLiteral)`tuple(<Expr fst>,<Expr snd>)`:
       return tupleValue(evalExpr(fst, vars, funs, dataTypes), evalExpr(snd, vars, funs, dataTypes));
@@ -155,8 +156,6 @@ private Value evalExpr(Expr expr, map[str, Value] vars, map[str, Value] funs,
 private Value evalFunction(FunDecl decl, list[Value] args, map[str, Value] globals,
     map[str, Value] funs, set[str] dataTypes) {
   list[str] paramNames = [];
-  list[Expr] bodyStmts = [];
-
   if (ParamList) params := decl.params {
     paramNames += params.head.id;
     for (p <- params.tail) {
@@ -176,8 +175,9 @@ private Value evalFunction(FunDecl decl, list[Value] args, map[str, Value] globa
 
   // Evaluate statements; the last expression is the return value.
   Value last = void;
-  for (stmt <- decl.body) {
-    last = evalStmt((Stmt) stmt, localEnv, globals, funs, dataTypes);
+  list[Stmt] stmts = stmtBlockToList(decl.body);
+  for (Stmt stmt <- stmts) {
+    last = evalStmt(stmt, localEnv, globals, funs, dataTypes);
   }
   return last;
 }
@@ -219,5 +219,21 @@ private Value arithOp(Expr l, Expr r, map[str, Value] vars, map[str, Value] funs
   int left = asInt(evalExpr(l, vars, funs, dataTypes));
   int right = asInt(evalExpr(r, vars, funs, dataTypes));
   return intValue(op(left, right));
+}
+
+private list[Stmt] stmtBlockToList(StmtBlock block) {
+  list[Stmt] stmts = [block.head];
+  for (Stmt stmt <- block.tail) {
+    stmts += stmt;
+  }
+  return stmts;
+}
+
+private list[Expr] exprListToList(ExprList exprList) {
+  list[Expr] exprs = [exprList.head];
+  for (Expr expr <- exprList.tail) {
+    exprs += expr;
+  }
+  return exprs;
 }
 
