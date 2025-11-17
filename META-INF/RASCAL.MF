@@ -1,5 +1,5 @@
 Manifest-Version: 0.0.1
-Project-Name: alu-ple
+Project-Name: alu-lang-project
 Source: src/main/rascal
 Require-Libraries: |lib://typepal|
 
