@@ -3,48 +3,79 @@ module lang::alu::Syntax
 extend lang::alu::CommonLex;
 
 start syntax Program
-  = program: Stmt*
+  = program: Decl+
   ;
 
-syntax Semi = ";"?;
-
-syntax Stmt
-  = varStmt: "var" VarDecls Semi
-  | funStmt: FunDecl
-  | exprStmt: Expr Semi
+syntax Decl
+  = dataDecl: DataDecl
+  | funDecl: FunDecl
+  | stmtDecl: Stmt
   ;
 
-syntax VarDecls = varDecls: VarDecl ("," VarDecl)*;
-
-syntax VarDecl
-  = varTypedInit: Id ":" Type "=" Expr
-  | varTyped: Id ":" Type
-  | varInit: Id "=" Expr
-  | varBare: Id
+syntax DataDecl
+  = dataDecl: name:Id "=" "data" "with" ops:{Id ","}+ "end" endName:Id? ";"?
   ;
 
 syntax FunDecl
-  = funDecl: Id name "=" "function" "(" Params? ")" "do" Block "end" Id? Semi
+  = funDecl: name:Id "=" "function" "(" params:{Param ","}* ")" "do" body:Block "end" endName:Id? ";"?
   ;
 
-syntax Params = params: Param ("," Param)*;
-
 syntax Param
-  = paramTyped: Id ":" Type
-  | paramBare: Id
+  = paramTyped: name:Id ":" typeAnn:Type
+  | paramBare: name:Id
+  ;
+
+syntax VarDecl
+  = varDecl: "var" bindings:{VarBinding ","}+ ";"?
+  ;
+
+syntax VarBinding
+  = bindingTypedInit: name:Id ":" typeAnn:Type "=" init:Expr
+  | bindingTyped: name:Id ":" typeAnn:Type
+  | bindingInit: name:Id "=" init:Expr
+  | bindingBare: name:Id
   ;
 
 syntax Block
-  = block: Stmt* Expr?
+  = block: Stmt*
+  ;
+
+syntax Stmt
+  = stmtVar: VarDecl
+  | stmtAssign: LValue "=" Expr ";"?
+  | stmtExpr: Expr ";"?
   ;
 
 syntax LValue
-  = lvId: Id
+  = lvName: Id
   ;
 
 syntax Expr
-  = assignExpr: LValue "=" Expr
-  | orExpr: OrExpr
+  = ifExpr: IfExpr
+  | condExpr: CondExpr
+  | forExpr: ForExpr
+  | logicOr: OrExpr
+  ;
+
+syntax IfExpr
+  = ifExpr: "if" cond:Expr "then" thenBlock:Block elseifParts:ElseIfPart* "else" elseBlock:Block "end"
+  ;
+
+syntax ElseIfPart
+  = elseifPart: "elseif" cond:Expr "then" Block
+  ;
+
+syntax CondExpr
+  = condExpr: "cond" subject:Expr "do" clauses:CondClause+ "end"
+  ;
+
+syntax CondClause
+  = condClause: guard:Expr "->" Block
+  ;
+
+syntax ForExpr
+  = forRange: "for" var:Id "from" start:Expr "to" stop:Expr "do" Block "end"
+  | forIter: "for" var:Id "in" source:Expr "do" Block "end"
   ;
 
 syntax OrExpr
@@ -53,44 +84,81 @@ syntax OrExpr
   ;
 
 syntax AndExpr
-  = andExpr: AndExpr "and" RelExpr
+  = andExpr: AndExpr "and" EqualityExpr
+  | equalityExpr: EqualityExpr
+  ;
+
+syntax EqualityExpr
+  = eqExpr: EqualityExpr "=" RelExpr
+  | neqExpr: EqualityExpr "<>" RelExpr
   | relExpr: RelExpr
   ;
 
 syntax RelExpr
-  = relLess: RelExpr "<" AddExpr
-  | relLessEq: RelExpr "<=" AddExpr
-  | relGreater: RelExpr ">" AddExpr
-  | relGreaterEq: RelExpr ">=" AddExpr
-  | relEqual: RelExpr "==" AddExpr
-  | relNotEqual: RelExpr "<>" AddExpr
-  | addOnly: AddExpr
+  = ltExpr: RelExpr "<" AddExpr
+  | leExpr: RelExpr "<=" AddExpr
+  | gtExpr: RelExpr ">" AddExpr
+  | geExpr: RelExpr ">=" AddExpr
+  | addExpr: AddExpr
   ;
 
 syntax AddExpr
   = plusExpr: AddExpr "+" MulExpr
   | minusExpr: AddExpr "-" MulExpr
-  | mulOnly: MulExpr
+  | mulExpr: MulExpr
   ;
 
 syntax MulExpr
-  = mulExpr: MulExpr "*" Atom
-  | divExpr: MulExpr "/" Atom
-  | atomOnly: Atom
+  = timesExpr: MulExpr "*" PowExpr
+  | divExpr: MulExpr "/" PowExpr
+  | modExpr: MulExpr "%" PowExpr
+  | powExpr: PowExpr
   ;
 
-syntax ArgList = args: Expr ("," Expr)*;
+syntax PowExpr
+  = powExpr: UnaryExpr "**" PowExpr
+  | unaryExpr: UnaryExpr
+  ;
 
-syntax Atom
+syntax UnaryExpr
+  = unaryNeg: "-" UnaryExpr
+  | unaryPlus: "+" UnaryExpr
+  | unaryNot: "neg" UnaryExpr
+  | postfixExpr: PostfixExpr
+  ;
+
+syntax PostfixExpr
+  = callExpr: PostfixExpr "(" args:{Expr ","}* ")"
+  | memberExpr: PostfixExpr "." field:Id
+  | primaryExpr: PrimaryExpr
+  ;
+
+syntax PrimaryExpr
   = parenExpr: "(" Expr ")"
-  | callExpr: Id "(" ArgList? ")"
-  | intLiteral: Integer
+  | dataCallExpr: dataName:Id "$" opName:Id "(" args:{Expr ","}* ")"
+  | structBuildExpr: structName:Id "$" "(" fields:{FieldInit ","}+ ")"
+  | sequenceExpr: "sequence" "(" elements:{Expr ","}* ")"
+  | tupleExpr: "tuple" "(" first:Expr "," second:Expr ")"
+  | structExpr: "struct" "(" fields:{Id ","}+ ")"
   | boolLiteral: Boolean
+  | intLiteral: Integer
+  | floatLiteral: Float
+  | charLiteral: Char
+  | stringLiteral: String
   | idExpr: Id
+  ;
+
+syntax FieldInit
+  = fieldInit: name:Id ":" value:Expr
   ;
 
 syntax Type
   = intType: "Int"
   | boolType: "Bool"
+  | floatType: "Float"
+  | charType: "Char"
+  | stringType: "String"
+  | sequenceType: "Sequence" "[" Type elem "]"
+  | tupleType: "Tuple" "[" Type fst "," Type snd "]"
   | dataType: Id
   ;

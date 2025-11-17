@@ -1,12 +1,35 @@
 module lang::alu::CommonLex
 
-layout Layout = [\t \r\n]*;
+layout Layout
+  = " "
+  | "\t"
+  | "\n"
+  | "\r"
+  | Comment
+  | Layout Layout
+  ;
+
+comment Comment
+  = "//" ![\n]* ("\n" | "\r" | "\r\n")?
+  | "/*" CommentChar* "*/"
+  ;
+
+lexical CommentChar
+  = ![*]
+  | "*" ![/]
+  ;
 
 // Integer literals (no sign, handled at expression level)
 lexical Integer = [0-9]+;
 
 // Floating point literals with a single decimal point
 lexical Float = [0-9]+ "." [0-9]+;
+
+// Character literals (simplified, escapes handled in semantic phase)
+lexical Char = "'" !['\n\r] "'";
+
+// Double quoted strings without embedded newlines
+lexical String = "\"" !["\n\r]* "\"";
 
 // Boolean literals
 lexical Boolean = "true" | "false";
@@ -21,4 +44,5 @@ keyword Reserved
   | "if" | "in" | "iterator" | "sequence" | "struct"
   | "to" | "tuple" | "type" | "with" | "yielding"
   | "var" | "Int" | "Bool" | "Char" | "String" | "Float"
+  | "Sequence" | "Tuple"
   ;
