@@ -393,10 +393,62 @@ AType buildType(Type type, Collector c) {
   return voidType();
 }
 
+str extractParamName(Param p) {
+  switch (p) {
+    case paramTyped(str name, _): return name;
+    case paramBare(str name): return name;
+  }
+  return "";
+}
+
+str extractDataName(DataDecl d) {
+  switch (d) {
+    case (DataDecl)`<Id name> = data with <{Id ","}+ _> end <Id? _> <";"? _>`:
+      return "<name>";
+  }
+  return "";
+}
+
+str extractFunName(FunDecl f) {
+  switch (f) {
+    case (FunDecl)`<Id name> = function(<{Param ","}* _>) do <Block _> end <Id? _> <";"? _>`:
+      return "<name>";
+  }
+  return "";
+}
+
+list[str] extractVarNames(VarDecl vd) {
+  list[str] names = [];
+  switch (vd) {
+    case varDecl(list[VarBinding] bindings):
+      for (VarBinding vb <- bindings) {
+        switch (vb) {
+          case bindingTypedInit(str name, _, _): names += [name];
+          case bindingTyped(str name, _): names += [name];
+          case bindingInit(str name, _): names += [name];
+          case bindingBare(str name): names += [name];
+        }
+      }
+  }
+  return names;
+}
+
 void collect(Program program, Collector c) {
   switch (program) {
     case program(list[Decl] decls): {
       c.enterScope(program);
+      
+      // Global uniqueness check
+      list[str] globalNames = [];
+      for (Decl d <- decls) {
+        switch (d) {
+          case dataDecl(DataDecl data): globalNames += [extractDataName(data)];
+          case funDecl(FunDecl fun): globalNames += [extractFunName(fun)];
+          case stmtDecl(stmtVar(VarDecl vd)): globalNames += extractVarNames(vd);
+        }
+      }
+      ensureUniqueIdentifiers(globalNames, program, c, "global identifier");
+
       for (Decl decl <- decls) {
         preCollect(decl, c);
       }
@@ -469,6 +521,10 @@ void collect(FunDecl decl, Collector c) {
   switch (decl) {
     case funDecl(str _, list[Param] params, Block body, _): {
       c.enterScope(decl);
+      
+      list[str] paramNames = [extractParamName(p) | Param p <- params];
+      ensureUniqueIdentifiers(paramNames, decl, c, "parameter");
+
       for (Param param <- params) {
         collect(param, c);
       }
@@ -861,7 +917,7 @@ void collect(PostfixExpr expr, Collector c) {
       c.calculate("member access", expr, [target], AType(Solver s) {
         AType targetType = s.getType(target);
         switch (targetType) {
-          case structInstanceType(list[StructField] fields):
+          case structInstanceType(list[StructField] fields): {
             for (StructField structField <- fields) {
               if (structField.name == fieldName) {
                 return structField.fieldType;
@@ -869,8 +925,15 @@ void collect(PostfixExpr expr, Collector c) {
             }
             s.report(error(expr, "Field %q not present on struct", fieldName));
             return voidType();
+          }
+          case tupleType(AType first, AType second): {
+            if (fieldName == "first") return first;
+            if (fieldName == "second") return second;
+            s.report(error(expr, "Tuple only has fields 'first' and 'second', found %q", fieldName));
+            return voidType();
+          }
           default:
-            s.report(error(expr, "Member access expects struct instance, found %t", target));
+            s.report(error(expr, "Member access expects struct instance or tuple, found %t", target));
             return voidType();
         }
       });

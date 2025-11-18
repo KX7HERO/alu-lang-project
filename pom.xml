@@ -34,11 +34,10 @@
       <version>0.14.8</version>
     </dependency>
 
-    <!-- Rascal runtime required by newer compiler plugin -->
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC30</version>
+      <version>0.40.17</version>
     </dependency>
     
     <!-- Vallang for value types (explicit dependency) -->
