@@ -1,6 +1,15 @@
 module lang::alu::Syntax
 
-extend lang::alu::CommonLex;
+// extend lang::alu::CommonLex;
+// layout Layout = [\t\n\r\ ]*;
+lexical Identifier = [a-z][a-z0-9\-]*;
+lexical Integer = [0-9]+;
+lexical Boolean = "true" | "false";
+lexical String = "\"" ![\n\r\"]* "\"";
+lexical Float = [0-9]+ "." [0-9]+;
+lexical Char = [\'] ![\n\r\'] [\'];
+
+syntax Name = Identifier;
 
 start syntax Program
   = program: Decl+
@@ -13,16 +22,16 @@ syntax Decl
   ;
 
 syntax DataDecl
-  = dataDecl: name:Id "=" "data" "with" {Id ","}+ "end" endName:Id? ";"?
+  = dDecl: Identifier "=" "data" "with" {Identifier ","}+ "end" Identifier? ";"?
   ;
 
 syntax FunDecl
-  = funDecl: name:Id "=" "function" "(" {Param ","}* ")" "do" body:Block "end" endName:Id? ";"?
+  = fDecl: n:Name "=" "function" "(" {Param ","}* ")" "do" Block "end" endName:Name? ";"?
   ;
 
 syntax Param
-  = paramTyped: name:Id ":" typeAnn:Type
-  | paramBare: name:Id
+  = paramTyped: n:Identifier ":" typeAnn:Type
+  | paramBare: n:Identifier
   ;
 
 syntax VarDecl
@@ -30,10 +39,10 @@ syntax VarDecl
   ;
 
 syntax VarBinding
-  = bindingTypedInit: name:Id ":" typeAnn:Type "=" init:Expr
-  | bindingTyped: name:Id ":" typeAnn:Type
-  | bindingInit: name:Id "=" init:Expr
-  | bindingBare: name:Id
+  = bindingTypedInit: n:Identifier ":" typeAnn:Type "=" init:Expr
+  | bindingTyped: n:Identifier ":" typeAnn:Type
+  | bindingInit: n:Identifier "=" init:Expr
+  | bindingBare: n:Identifier
   ;
 
 syntax Block
@@ -47,7 +56,7 @@ syntax Stmt
   ;
 
 syntax LValue
-  = lvName: Id
+  = lvName: Identifier
   ;
 
 syntax Expr
@@ -74,8 +83,8 @@ syntax CondClause
   ;
 
 syntax ForExpr
-  = forRange: "for" var:Id "from" start:Expr "to" stop:Expr "do" Block "end"
-  | forIter: "for" var:Id "in" source:Expr "do" Block "end"
+  = forRange: "for" var:Identifier "from" start:Expr "to" stop:Expr "do" Block "end"
+  | forIter: "for" var:Identifier "in" source:Expr "do" Block "end"
   ;
 
 syntax OrExpr
@@ -129,27 +138,27 @@ syntax UnaryExpr
 
 syntax PostfixExpr
   = callExpr: PostfixExpr "(" {Expr ","}* ")"
-  | memberExpr: PostfixExpr "." field:Id
+  | memberExpr: PostfixExpr "." field:Identifier
   | primaryExpr: PrimaryExpr
   ;
 
 syntax PrimaryExpr
   = parenExpr: "(" Expr ")"
-  | dataCallExpr: dataName:Id "$" opName:Id "(" {Expr ","}* ")"
-  | structBuildExpr: structName:Id "$" "(" {FieldInit ","}+ ")"
+  | dataCallExpr: dataName:Identifier "$" opName:Identifier "(" {Expr ","}* ")"
+  | structBuildExpr: structName:Identifier "$" "(" {FieldInit ","}+ ")"
   | sequenceExpr: "sequence" "(" {Expr ","}* ")"
   | tupleExpr: "tuple" "(" first:Expr "," second:Expr ")"
-  | structExpr: "struct" "(" {Id ","}+ ")"
+  | structExpr: "struct" "(" {Identifier ","}+ ")"
   | boolLiteral: Boolean
   | intLiteral: Integer
   | floatLiteral: Float
   | charLiteral: Char
   | stringLiteral: String
-  | idExpr: Id
+  | idExpr: Identifier
   ;
 
 syntax FieldInit
-  = fieldInit: name:Id ":" value:Expr
+  = fieldInit: n:Identifier ":" value:Expr
   ;
 
 syntax Type
@@ -160,5 +169,5 @@ syntax Type
   | stringType: "String"
   | sequenceType: "Sequence" "[" elem:Type "]"
   | tupleType: "Tuple" "[" fst:Type "," snd:Type "]"
-  | dataType: Id
+  | dataType: Identifier
   ;

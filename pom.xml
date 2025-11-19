@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.uniandes.isis2111</groupId>
-  <artifactId>alu-ple</artifactId>
+  <groupId>org.rascalmpl</groupId>
+  <artifactId>rascaldsl</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 
   <properties>
@@ -27,93 +28,40 @@
   </pluginRepositories>
 
   <dependencies>
-    <!-- TypePal for the type system (Project 3) -->
-    <dependency>
-      <groupId>org.rascalmpl</groupId>
-      <artifactId>typepal</artifactId>
-      <version>0.14.8</version>
-    </dependency>
-
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
       <version>0.40.17</version>
     </dependency>
-    
-    <!-- Vallang for value types (explicit dependency) -->
     <dependency>
-      <groupId>io.usethesource</groupId>
-      <artifactId>vallang</artifactId>
-      <version>0.14.2</version>
+      <groupId>org.rascalmpl</groupId>
+      <artifactId>typepal</artifactId>
+      <version>0.8.6</version>
     </dependency>
   </dependencies>
 
   <build>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>org.eclipse.m2e</groupId>
-          <artifactId>lifecycle-mapping</artifactId>
-          <version>1.0.0</version>
-          <configuration>
-            <lifecycleMappingMetadata>
-              <pluginExecutions>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.rascalmpl</groupId>
-                    <artifactId>rascal-maven-plugin</artifactId>
-                    <versionRange>[0.0.0,)</versionRange>
-                    <goals>
-                      <goal>compile</goal>
-                      <goal>test</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore/>
-                  </action>
-                </pluginExecution>
-              </pluginExecutions>
-            </lifecycleMappingMetadata>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.8.0</version>
         <configuration>
-          <compilerArgument>-parameters</compilerArgument>
+          <compilerArgument>-parameters</compilerArgument> 
           <release>11</release>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.30.0-RC29</version>
+        <version>0.8.2</version>
         <configuration>
+          <errorsAsWarnings>true</errorsAsWarnings>
           <bin>${project.build.outputDirectory}</bin>
           <srcs>
             <src>${project.basedir}/src/main/rascal</src>
           </srcs>
         </configuration>
-        <executions>
-          <execution>
-            <id>rascal-compile</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>rascal-test</id>
-            <phase>test</phase>
-            <goals>
-              <goal>test</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>
