@@ -1,15 +1,8 @@
 module lang::alu::Syntax
 
-// extend lang::alu::CommonLex;
-// layout Layout = [\t\n\r\ ]*;
-lexical Identifier = [a-z][a-z0-9\-]*;
-lexical Integer = [0-9]+;
-lexical Boolean = "true" | "false";
-lexical String = "\"" ![\n\r\"]* "\"";
-lexical Float = [0-9]+ "." [0-9]+;
-lexical Char = [\'] ![\n\r\'] [\'];
+extend lang::alu::CommonLex;
 
-syntax Name = Identifier;
+syntax Name = Id;
 
 start syntax Program
   = program: Decl+
@@ -22,41 +15,41 @@ syntax Decl
   ;
 
 syntax DataDecl
-  = dDecl: Identifier "=" "data" "with" {Identifier ","}+ "end" Identifier? ";"?
+  = dDecl: Id name "=" "data" "with" {Id ","}+ ops "end" Id? endName ";"?
   ;
 
 syntax FunDecl
-  = fDecl: n:Name "=" "function" "(" {Param ","}* ")" "do" Block "end" endName:Name? ";"?
+  = fDecl: Name n "=" "function" "(" {Param ","}* params ")" "do" Block body "end" Name? endName ";"?
   ;
 
 syntax Param
-  = paramTyped: n:Identifier ":" typeAnn:Type
-  | paramBare: n:Identifier
+  = paramTyped: Id n ":" Type typeAnn
+  | paramBare: Id n
   ;
 
 syntax VarDecl
-  = varDecl: "var" {VarBinding ","}+ ";"?
+  = varDecl: "var" {VarBinding ","}+ bindings ";"?
   ;
 
 syntax VarBinding
-  = bindingTypedInit: n:Identifier ":" typeAnn:Type "=" init:Expr
-  | bindingTyped: n:Identifier ":" typeAnn:Type
-  | bindingInit: n:Identifier "=" init:Expr
-  | bindingBare: n:Identifier
+  = bindingTypedInit: Id n ":" Type typeAnn "=" Expr init
+  | bindingTyped: Id n ":" Type typeAnn
+  | bindingInit: Id n "=" Expr init
+  | bindingBare: Id n
   ;
 
 syntax Block
-  = block: Stmt*
+  = block: Stmt* stmts
   ;
 
 syntax Stmt
-  = stmtVar: VarDecl
-  | stmtAssign: LValue "=" Expr ";"?
-  | stmtExpr: Expr ";"?
+  = stmtVar: VarDecl decl
+  | stmtAssign: LValue target "=" Expr expr ";"?
+  | stmtExpr: Expr expr ";"?
   ;
 
 syntax LValue
-  = lvName: Identifier
+  = lvName: Id name
   ;
 
 syntax Expr
@@ -67,98 +60,98 @@ syntax Expr
   ;
 
 syntax IfExpr
-  = ifExpr: "if" cond:Expr "then" thenBlock:Block elseifParts:ElseIfPart* "else" elseBlock:Block "end"
+  = ifExpr: "if" Expr cond "then" Block thenBlock ElseIfPart* elseifParts "else" Block elseBlock "end"
   ;
 
 syntax ElseIfPart
-  = elseifPart: "elseif" cond:Expr "then" Block
+  = elseifPart: "elseif" Expr cond "then" Block block
   ;
 
 syntax CondExpr
-  = condExpr: "cond" subject:Expr "do" clauses:CondClause+ "end"
+  = condExpr: "cond" Expr subject "do" CondClause+ clauses "end"
   ;
 
 syntax CondClause
-  = condClause: guard:Expr "->" Block
+  = condClause: Expr guard "->" Block block
   ;
 
 syntax ForExpr
-  = forRange: "for" var:Identifier "from" start:Expr "to" stop:Expr "do" Block "end"
-  | forIter: "for" var:Identifier "in" source:Expr "do" Block "end"
+  = forRange: "for" Id var "from" Expr start "to" Expr stop "do" Block block "end"
+  | forIter: "for" Id var "in" Expr source "do" Block block "end"
   ;
 
 syntax OrExpr
-  = orExpr: OrExpr "or" AndExpr
+  = orExpr: OrExpr left "or" AndExpr right
   | andExpr: AndExpr
   ;
 
 syntax AndExpr
-  = andExpr: AndExpr "and" EqualityExpr
+  = andExpr: AndExpr left "and" EqualityExpr right
   | equalityExpr: EqualityExpr
   ;
 
 syntax EqualityExpr
-  = eqExpr: EqualityExpr "=" RelExpr
-  | neqExpr: EqualityExpr "<>" RelExpr
+  = eqExpr: EqualityExpr left "=" RelExpr right
+  | neqExpr: EqualityExpr left "<>" RelExpr right
   | relExpr: RelExpr
   ;
 
 syntax RelExpr
-  = ltExpr: RelExpr "<" AddExpr
-  | leExpr: RelExpr "<=" AddExpr
-  | gtExpr: RelExpr ">" AddExpr
-  | geExpr: RelExpr ">=" AddExpr
+  = ltExpr: RelExpr left "<" AddExpr right
+  | leExpr: RelExpr left "<=" AddExpr right
+  | gtExpr: RelExpr left ">" AddExpr right
+  | geExpr: RelExpr left ">=" AddExpr right
   | addExpr: AddExpr
   ;
 
 syntax AddExpr
-  = plusExpr: AddExpr "+" MulExpr
-  | minusExpr: AddExpr "-" MulExpr
+  = plusExpr: AddExpr left "+" MulExpr right
+  | minusExpr: AddExpr left "-" MulExpr right
   | mulExpr: MulExpr
   ;
 
 syntax MulExpr
-  = timesExpr: MulExpr "*" PowExpr
-  | divExpr: MulExpr "/" PowExpr
-  | modExpr: MulExpr "%" PowExpr
+  = timesExpr: MulExpr left "*" PowExpr right
+  | divExpr: MulExpr left "/" PowExpr right
+  | modExpr: MulExpr left "%" PowExpr right
   | powExpr: PowExpr
   ;
 
 syntax PowExpr
-  = powExpr: UnaryExpr "**" PowExpr
+  = powExpr: UnaryExpr base "**" PowExpr exponent
   | unaryExpr: UnaryExpr
   ;
 
 syntax UnaryExpr
-  = unaryNeg: "-" UnaryExpr
-  | unaryPlus: "+" UnaryExpr
-  | unaryNot: "neg" UnaryExpr
+  = unaryNeg: "-" UnaryExpr operand
+  | unaryPlus: "+" UnaryExpr operand
+  | unaryNot: "neg" UnaryExpr operand
   | postfixExpr: PostfixExpr
   ;
 
 syntax PostfixExpr
-  = callExpr: PostfixExpr "(" {Expr ","}* ")"
-  | memberExpr: PostfixExpr "." field:Identifier
+  = callExpr: PostfixExpr callee "(" {Expr ","}* args ")"
+  | memberExpr: PostfixExpr target "." Id field
   | primaryExpr: PrimaryExpr
   ;
 
 syntax PrimaryExpr
-  = parenExpr: "(" Expr ")"
-  | dataCallExpr: dataName:Identifier "$" opName:Identifier "(" {Expr ","}* ")"
-  | structBuildExpr: structName:Identifier "$" "(" {FieldInit ","}+ ")"
-  | sequenceExpr: "sequence" "(" {Expr ","}* ")"
-  | tupleExpr: "tuple" "(" first:Expr "," second:Expr ")"
-  | structExpr: "struct" "(" {Identifier ","}+ ")"
+  = parenExpr: "(" Expr inner ")"
+  | dataCallExpr: Id dataName "$" Id opName "(" {Expr ","}* args ")"
+  | structBuildExpr: Id structName "$" "(" {FieldInit ","}+ inits ")"
+  | sequenceExpr: "sequence" "(" {Expr ","}* elements ")"
+  | tupleExpr: "tuple" "(" Expr first "," Expr second ")"
+  | structExpr: "struct" "(" {Id ","}+ fields ")"
   | boolLiteral: Boolean
   | intLiteral: Integer
   | floatLiteral: Float
   | charLiteral: Char
   | stringLiteral: String
-  | idExpr: Identifier
+  | idExpr: Id name
   ;
 
 syntax FieldInit
-  = fieldInit: n:Identifier ":" value:Expr
+  = fieldInit: Id n ":" Expr value
   ;
 
 syntax Type
@@ -167,7 +160,7 @@ syntax Type
   | floatType: "Float"
   | charType: "Char"
   | stringType: "String"
-  | sequenceType: "Sequence" "[" elem:Type "]"
-  | tupleType: "Tuple" "[" fst:Type "," snd:Type "]"
-  | dataType: Identifier
+  | sequenceType: "Sequence" "[" Type elem "]"
+  | tupleType: "Tuple" "[" Type fst "," Type snd "]"
+  | dataType: Id name
   ;

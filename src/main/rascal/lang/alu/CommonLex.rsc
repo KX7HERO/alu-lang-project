@@ -1,12 +1,10 @@
 module lang::alu::CommonLex
 
-layout Layout
-  = " "
-  | "\t"
-  | "\n"
-  | "\r"
+layout Layout = WhitespaceAndComment* !>> [\ \t\n\r] !>> "//" !>> "/*";
+
+lexical WhitespaceAndComment
+  = [\ \t\n\r]
   | Comment
-  | Layout Layout
   ;
 
 lexical Comment
@@ -35,7 +33,7 @@ lexical String = "\"" ![\n\r\"]* "\"";
 lexical Boolean = "true" | "false";
 
 // Simple identifiers: starting with a letter, followed by letters, digits or '-'
-lexical Id = [a-z][a-z0-9\-]*;
+lexical Id = [a-z][a-z0-9\-]* \ Reserved;
 
 // Keywords taken from the ALU specification
 keyword Reserved

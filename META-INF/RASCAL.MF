@@ -1,6 +1,6 @@
-Manifest-Version: 0.0.1
+Manifest-Version: 1.0
 Project-Name: alu-lang-project
+Main-Class: Plugin
+Main-Module: Plugin
 Source: src/main/rascal
 Require-Libraries: |lib://dsl-project|, |lib://typepal|
-
-
